@@ -1,0 +1,20 @@
+--- htdig-3.1.5/installdir/rundig.emptydb	Thu Feb 24 21:29:12 2000
++++ htdig-3.1.5/installdir/rundig	Fri Dec 29 11:17:50 2000
+@@ -34,7 +34,17 @@
+ export TMPDIR
+ 
+ $BINDIR/htdig -i $opts $stats $alt
++[ -e /var/lib/htdig/db/db.wordlist ] &&
++[ "`cat /var/lib/htdig/db/db.wordlist`" = "-0" ] && exit;
++
++[ -e /var/lib/htdig/db/db.wordlist.work ] &&
++[ "`cat /var/lib/htdig/db/db.wordlist.work`" = "-0" ] && exit;
++
++OLD_LC=$LC_ALL
++export LC_ALL=C
+ $BINDIR/htmerge $opts $stats $alt
++export LC_ALL=$OLD_LC
++
+ case "$alt" in
+ -a)
+   ( cd $DBDIR && test -f db.docdb.work &&

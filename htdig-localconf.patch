@@ -1,0 +1,19 @@
++++ htdig-3.1.5/installdir/htdig.conf	Wed May 12 14:46:07 1999
+@@ -25,7 +25,7 @@
+ # You could also index all the URLs in a file like so:
+ # start_url:	       `${common_dir}/start.url`
+ #
+-start_url:		http://www.htdig.org/
++start_url:		http://localhost
+ 
+ #
+ # This attribute limits the scope of the indexing process.  The default is to
+@@ -54,7 +54,7 @@
+ # The string htdig will send in every request to identify the robot.  Change
+ # this to your email address.
+ #
+-maintainer:		unconfigured@htdig.searchengine.maintainer
++maintainer:		root@localhost
+ 
+ #
+ # The excerpts that are displayed in long results rely on stored information

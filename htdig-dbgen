@@ -1,0 +1,4 @@
+#!/bin/bash
+# cron.daily script to run htdig db generation
+su - htdig -c "/usr/bin/rundig -a"
+

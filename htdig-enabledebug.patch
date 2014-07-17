@@ -1,0 +1,77 @@
+--- htdig-3.2.0b4-072201/db/bt_compare.c.enabledebug	Tue Oct 10 05:15:24 2000
++++ htdig-3.2.0b4-072201/db/bt_compare.c	Mon Jul 23 18:19:58 2001
+@@ -55,7 +55,7 @@
+ #include "btree.h"
+ 
+ #ifdef DEBUG
+-#include "WordMonitor.h"
++#include "../htword/WordMonitor.h"
+ #endif /* DEBUG */
+ 
+ /*
+--- htdig-3.2.0b4-072201/db/bt_split.c.enabledebug	Mon Jul 23 18:22:05 2001
++++ htdig-3.2.0b4-072201/db/bt_split.c	Mon Jul 23 18:23:30 2001
+@@ -58,7 +58,7 @@
+ #include "btree.h"
+ 
+ #ifdef DEBUG
+-#include "WordMonitor.h"
++#include "../htword/WordMonitor.h"
+ #endif /* DEBUG */
+ 
+ static int CDB___bam_broot __P((DBC *, PAGE *, PAGE *, PAGE *));
+--- htdig-3.2.0b4-072201/db/db_am.c.enabledebug	Mon Jul 23 18:22:16 2001
++++ htdig-3.2.0b4-072201/db/db_am.c	Mon Jul 23 18:23:43 2001
+@@ -31,7 +31,7 @@
+ #include "db_ext.h"
+ 
+ #ifdef DEBUG
+-#include "WordMonitor.h"
++#include "../htword/WordMonitor.h"
+ #endif /* DEBUG */
+ 
+ static int CDB___db_c_close __P((DBC *));
+--- htdig-3.2.0b4-072201/db/mp_bh.c.enabledebug	Mon Jul 23 18:22:26 2001
++++ htdig-3.2.0b4-072201/db/mp_bh.c	Mon Jul 23 18:23:56 2001
+@@ -23,7 +23,7 @@
+ #include "mp.h"
+ 
+ #ifdef DEBUG
+-#include "WordMonitor.h"
++#include "../htword/WordMonitor.h"
+ #include "db_page.h"
+ #endif /* DEBUG */
+ 
+--- htdig-3.2.0b4-072201/db/mp_cmpr.c.enabledebug	Mon Jul 23 18:22:37 2001
++++ htdig-3.2.0b4-072201/db/mp_cmpr.c	Mon Jul 23 18:24:11 2001
+@@ -59,7 +59,7 @@
+ #include "common_ext.h"
+ 
+ #ifdef DEBUG
+-#include "WordMonitor.h"
++#include "../htword/WordMonitor.h"
+ #endif /* DEBUG */
+ 
+ #if 0
+--- htdig-3.2.0b4-072201/db/mp_fget.c.enabledebug	Mon Jul 23 18:22:48 2001
++++ htdig-3.2.0b4-072201/db/mp_fget.c	Mon Jul 23 18:24:57 2001
+@@ -23,7 +23,7 @@
+ #include "mp.h"
+ 
+ #ifdef DEBUG
+-#include "WordMonitor.h"
++#include "../htword/WordMonitor.h"
+ #endif /* DEBUG */
+ 
+ /*
+--- htdig-3.2.0b4-072201/db/mp_cmpr.c.memcpy.enabledebug	Mon Jul 23 18:23:04 2001
++++ htdig-3.2.0b4-072201/db/mp_cmpr.c.memcpy	Mon Jul 23 18:25:17 2001
+@@ -57,7 +57,7 @@
+ #include "common_ext.h"
+ 
+ #ifdef DEBUG
+-#include "WordMonitor.h"
++#include "../htword/WordMonitor.h"
+ #endif /* DEBUG */
+ 
+ #if 0

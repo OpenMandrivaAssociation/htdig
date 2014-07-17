@@ -1,0 +1,15 @@
+--- sbin/rundig.orig	Tue Sep 12 11:37:32 2000
++++ sbin/rundig	Tue Sep 12 12:06:26 2000
+@@ -34,7 +34,12 @@
+ export TMPDIR
+ 
+ $BINDIR/htdig -i $opts $stats $alt
++
++OLD_LC=$LC_ALL
++export LC_ALL=C
+ $BINDIR/htmerge $opts $stats $alt
++export LC_ALL=$OLD_LC
++
+ case "$alt" in
+ -a)
+   ( cd $DBDIR && test -f db.docdb.work &&

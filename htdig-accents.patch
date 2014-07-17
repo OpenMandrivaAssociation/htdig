@@ -1,0 +1,456 @@
+
+From grdetil@scrc.umanitoba.ca Tue May  2 14:08:36 2000
+Date: Tue, 2 May 2000 15:25:03 -0500 (CDT)
+From: Gilles Detillieux <grdetil@scrc.umanitoba.ca>
+To: Robert Marchand <robert.marchand@UMontreal.CA>
+Cc: htdig@htdig.org
+Subject: Re: [htdig] patch for Accents fuzzy algorithm for 3.1.5
+
+According to Robert Marchand:
+> So, here is a patch that does two things: it remove the 'key' from the
+> list of words in the accent database and next put it on the search words
+> no matter if it exists. Practicaly this mean that the 'banalized' version
+> is always search.
+> 
+> An other way to do it would be to let all the words
+> have their banalized version even the non-accentuated but it would mean
+> a bigger database.  Don't really know which is best!
+
+I like the approach that saves space.  The only drawback I can see is that
+it may slightly increase search time if it causes an unnecessary search for
+the banalized version in cases where there is no banalized version of the
+word in any documents - however the DB should be able to deal with that
+very quickly.
+
+> Here is the patch (for htdig version 3.1.5).
+> You must be in the htfuzzy directory to apply it.
+> It is to be applied after the last patch posted by Gilles Detillieux.
+
+Your patch seems to have been mangled a bit by your mailer, plus it seems
+to contain tabs where the source files you sent previously had spaces, so
+I'm guessing the earlier files got slightly mangled as well.  Anyway, I
+couldn't apply the patch automatically, so I did it manually.  Here's
+my updated patch...
+
+--------------------
+This is the latest update to Robert Marchand's accents patch, which
+merges together the last patch I posted with Robert's fix for matching
+unaccented words in documents to accented search words.  It includes
+the fix to htsearch for parsing search_algorithm correctly in locales
+that use a comma as a decimal point, as well as the kludge to support
+truncated words.  It therefore supercedes all previous 3.1.5 patches
+for accents fuzzy matching.
+
+This patch is for 3.1.5.  You should be able to apply it with
+"patch -p1 < this_file" while in the main source directory.  I made
+two changes to Robert's code.  First, when using the characters as
+subscripts into the MinusculeISOLAT1 array, it's necessary to cast them
+to unsigned char, or this will break on systems where chars are signed
+by default.  I also made a kludgy fix to support truncating search words
+to maximum_word_length, to properly match similarly truncated words in
+the database.  I'm not wild about the external reference to config,
+while other methods in this class have the config object passed to
+them, but it should get the job done.  I'd still recommend increasing
+maximum_word_length to avoid this problem altogether.
+
+Robert also changed the algorithm to avoid putting the key as a word
+in the database, resulting in even more database space savings than
+his earlier writeDB() method (now obsolete).  A new getWords() method
+adds the key to the list of words, so that htsearch will always search
+for the unaccented word, even if entered with accents.
+
+When you change your locale to one that uses a different format for
+floating point numbers (i.e 0,5 instead of 0.5), then you must change
+any floating point attribute definitions in your config file to use this
+floating point format.  This can affect any of the *_factor attributes, as
+well as the search_algorithm attribute, on any system in which the atof()
+function is locale-aware, as is the case on Linux systems where atof()
+simply calls strtod().  Without this change, the floating point numbers
+will be read as integers, so 0.5 will be treated as 0.  If htsearch
+thinks the weight is 0 for any fuzzy match algorithm, it won't highlight
+the search words in the excerpt, even though, oddly enough, it did seem
+to find those words.  (I guess it would affect the ranking, though.)
+This patch also fixes htsearch not to use commas as string list separators
+in parsing search_algorithm, so the comma can be used in numbers.
+
+
+diff -c3prN htdig-3.1.5/htcommon/defaults.cc htdig-3.1.5.accents/htcommon/defaults.cc
+*** htdig-3.1.5/htcommon/defaults.cc	Thu Feb 24 20:29:10 2000
+--- htdig-3.1.5.accents/htcommon/defaults.cc	Thu Mar  2 11:20:55 2000
+*************** ConfigDefaults	defaults[] =
+*** 27,32 ****
+--- 27,33 ----
+      //
+      // General defaults
+      //
++     {"accents_db",			"${database_base}.accents.db"},
+      {"add_anchors_to_excerpt",		"true"},
+      {"allow_in_form",			""},
+      {"allow_numbers",			"false"},
+diff -c3prN htdig-3.1.5/htfuzzy/Accents.cc htdig-3.1.5.accents/htfuzzy/Accents.cc
+*** htdig-3.1.5/htfuzzy/Accents.cc	Wed Dec 31 18:00:00 1969
+--- htdig-3.1.5.accents/htfuzzy/Accents.cc	Tue May  2 12:20:08 2000
+***************
+*** 0 ****
+--- 1,204 ----
++ //
++ // Accents.cc
++ //
++ // Implementation of Accents
++ //
++ //
++ //
++ #if RELEASE
++ static char RCSid[] = "$Id: $";
++ #endif
++ 
++ #include "Configuration.h"
++ #include "htconfig.h"
++ #include "Accents.h"
++ #include "Dictionary.h"
++ #include <ctype.h>
++ #include <fstream.h>
++ 
++ extern int debug;
++ 
++ /*-------------------------------------------------------------------.
++ | Ajoute par Robert Marchand pour permettre le traitement adequat de |
++ | l'ISO-LATIN         (provient du code de Pierre Rosa)              |
++ `-------------------------------------------------------------------*/
++ 
++ /*--------------------------------------------------.
++ | table iso-latin1 "minusculisee" et "de-accentuee" |
++ `--------------------------------------------------*/
++   
++ static char MinusculeISOLAT1[256] = {
++      0,   1,   2,   3,   4,   5,   6,   7,
++      8,   9,  10,  11,  12,  13,  14,  15,
++     16,  17,  18,  19,  20,  21,  22,  23,
++     24,  25,  26,  27,  28,  29,  30,  31,
++     32,  33,  34,  35,  36,  37,  38,  39,
++     40,  41,  42,  43,  44,  45,  46,  47,
++     48,  49,  50,  51,  52,  53,  54,  55,
++     56,  57,  58,  59,  60,  61,  62,  63,
++     64, 'a', 'b', 'c', 'd', 'e', 'f', 'g',
++    'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
++    'p', 'q', 'r', 's', 't', 'u', 'v', 'w',
++    'x', 'y', 'z',  91,  92,  93,  94,  95,
++     96, 'a', 'b', 'c', 'd', 'e', 'f', 'g',
++    'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
++    'p', 'q', 'r', 's', 't', 'u', 'v', 'w',
++    'x', 'y', 'z', 123, 124, 125, 126, 127,
++    128, 129, 130, 131, 132, 133, 134, 135,
++    136, 137, 138, 139, 140, 141, 142, 143,
++    144, 145, 146, 147, 148, 149, 150, 151,
++    152, 153, 154, 155, 156, 157, 158, 159,
++    160, 161, 162, 163, 164, 165, 166, 167,
++    168, 168, 170, 171, 172, 173, 174, 175,
++    176, 177, 178, 179, 180, 181, 182, 183,
++    184, 185, 186, 187, 188, 189, 190, 191,
++    'a', 'a', 'a', 'a', 'a', 'a', 'a', 'c',
++    'e', 'e', 'e', 'e', 'i', 'i', 'i', 'i',
++    208, 'n', 'o', 'o', 'o', 'o', 'o', 'o',
++    'o', 'u', 'u', 'u', 'u', 'y', 222, 223,
++    'a', 'a', 'a', 'a', 'a', 'a', 'a', 'c',
++    'e', 'e', 'e', 'e', 'i', 'i', 'i', 'i',
++    240, 'n', 'o', 'o', 'o', 'o', 'o', 'o',
++    'o', 'u', 'u', 'u', 'u', 'y', 254, 255};
++   
++ 
++ //*****************************************************************************
++ // Accents::Accents()
++ //
++ Accents::Accents()
++ {
++     name = "accents";
++ }
++ 
++ 
++ //*****************************************************************************
++ // Accents::~Accents()
++ //
++ Accents::~Accents()
++ {
++ }
++ 
++ /* Obsolete */
++ //*****************************************************************************
++ // int Accents::writeDB(Configuration &config)
++ //
++ /*
++ int
++ Accents::writeDB(Configuration &config)
++ {
++     String	var = name;
++     var << "_db";
++     String	filename = config[var];
++ 
++     index = Database::getDatabaseInstance();
++     if (index->OpenReadWrite(filename, 0664) == NOTOK)
++ 	return NOTOK;
++ 
++     String	*s;
++     char	*fuzzyKey;
++ 
++     int		count = 0;
++ 
++     dict->Start_Get();
++     while ((fuzzyKey = dict->Get_Next()))
++     {
++ 	s = (String *) dict->Find(fuzzyKey);
++ 
++ 	// Only add if meaningfull list
++ 	if (mystrcasecmp(fuzzyKey, s->get()) != 0) {
++ 
++ 	  index->Put(fuzzyKey, *s);
++ 
++ 	  if (debug > 1)
++ 	    {
++ 	      cout << "htfuzzy: '" << fuzzyKey << "' ==> '" << s->get() << "'\n";
++ 	    }
++ 	  count++;
++ 	  if ((count % 100) == 0 && debug == 1)
++ 	    {
++ 	      cout << "htfuzzy: keys: " << count << '\n';
++ 	      cout.flush();
++ 	    }
++ 	}
++     }
++     if (debug == 1)
++     {
++ 	cout << "htfuzzy:Total keys: " << count << "\n";
++     }
++     return OK;
++ }
++ */
++ 
++ 
++ //*****************************************************************************
++ // void Accents::generateKey(char *word, String &key)
++ //
++ void
++ Accents::generateKey(char *word, String &key)
++ {
++     extern Configuration	config;
++     static int	maximum_word_length = config.Value("maximum_word_length", 12);
++ 
++     if (!word || !*word)
++       return;
++ 
++     String	temp(word);
++     if (temp.length() > maximum_word_length)
++       temp.chop(temp.length()-maximum_word_length);
++     word = temp.get();
++     key = '0';
++     while (*word) {
++       key << MinusculeISOLAT1[ (unsigned char) *word++ ];
++     }
++ }
++ 
++ 
++ //*****************************************************************************
++ // void Accents::addWord(char *word)
++ //
++ void
++ Accents::addWord(char *word)
++ {
++     if (!dict)
++     {
++ 	dict = new Dictionary;
++     }
++ 
++     String	key;
++     generateKey(word, key);
++ 
++     // Do not add fuzzy key as a word, will be added at search time.
++     if (mystrcasecmp(word, key.get()) == 0) 
++ 	return;
++ 
++     String	*s = (String *) dict->Find(key);
++     if (s)
++     {
++ 	//	if (mystrcasestr(s->get(), word) != 0)
++ 	(*s) << ' ' << word;
++     }
++     else
++     {
++ 	dict->Add(key, new String(word));
++     }
++ }
++ 
++ 
++ //*****************************************************************************
++ // void Accents::getWords(char *word, List &words)
++ //
++ void
++ Accents::getWords(char *word, List &words)
++ {
++ 
++     if (!word || !*word)
++ 	return;
++ 
++     Fuzzy::getWords(word, words);
++ 
++     // fuzzy key itself is always searched.
++     String	fuzzyKey;
++     generateKey(word, fuzzyKey);
++     if (mystrcasecmp(fuzzyKey.get(), word) != 0)
++ 	words.Add(new String(fuzzyKey));
++ }
+diff -c3prN htdig-3.1.5/htfuzzy/Accents.h htdig-3.1.5.accents/htfuzzy/Accents.h
+*** htdig-3.1.5/htfuzzy/Accents.h	Wed Dec 31 18:00:00 1969
+--- htdig-3.1.5.accents/htfuzzy/Accents.h	Tue May  2 12:17:56 2000
+***************
+*** 0 ****
+--- 1,30 ----
++ //
++ // Accents.h
++ //
++ // $Id: $
++ //
++ //
++ #ifndef _Accents_h_
++ #define _Accents_h_
++ 
++ #include "Fuzzy.h"
++ 
++ class Accents : public Fuzzy
++ {
++ public:
++ 	//
++ 	// Construction/Destruction
++ 	//
++ 					Accents();
++ 	virtual			~Accents();
++ 
++ 	virtual void	generateKey(char *word, String &key);
++ 
++ 	virtual void	addWord(char *word);
++ 
++ 	virtual void	getWords(char *word, List &words);
++ 
++ private:
++ };
++ 
++ #endif
+diff -c3prN htdig-3.1.5/htfuzzy/Fuzzy.cc htdig-3.1.5.accents/htfuzzy/Fuzzy.cc
+*** htdig-3.1.5/htfuzzy/Fuzzy.cc	Thu Feb 24 20:29:10 2000
+--- htdig-3.1.5.accents/htfuzzy/Fuzzy.cc	Thu Mar  2 11:22:14 2000
+*************** static char RCSid[] = "$Id: Fuzzy.cc,v 1
+*** 13,18 ****
+--- 13,19 ----
+  #include "Configuration.h"
+  #include "List.h"
+  #include "StringList.h"
++ #include "Accents.h"
+  #include "Endings.h"
+  #include "Exact.h"
+  #include "Metaphone.h"
+*************** Fuzzy::getFuzzyByName(char *name)
+*** 171,176 ****
+--- 172,179 ----
+  	return new Soundex();
+      else if (mystrcasecmp(name, "metaphone") == 0)
+  	return new Metaphone();
++     else if (mystrcasecmp(name, "accents") == 0)
++ 	return new Accents();
+      else if (mystrcasecmp(name, "endings") == 0)
+  	return new Endings();
+      else if (mystrcasecmp(name, "synonyms") == 0)
+diff -c3prN htdig-3.1.5/htfuzzy/Makefile.in htdig-3.1.5.accents/htfuzzy/Makefile.in
+*** htdig-3.1.5/htfuzzy/Makefile.in	Thu Feb 24 20:29:10 2000
+--- htdig-3.1.5.accents/htfuzzy/Makefile.in	Thu Mar  2 11:23:48 2000
+*************** include $(top_builddir)/Makefile.config
+*** 10,20 ****
+  OBJS=		Endings.o EndingsDB.o Exact.o \
+  		Fuzzy.o Metaphone.o Soundex.o \
+  		SuffixEntry.o Synonym.o htfuzzy.o \
+! 		Substring.o Prefix.o
+  
+  LIBOBJS=	Endings.o Exact.o Fuzzy.o Metaphone.o \
+  		Soundex.o Synonym.o EndingsDB.o SuffixEntry.o \
+! 		Substring.o Prefix.o
+  
+  TARGET=		htfuzzy
+  LIBTARGET=	libfuzzy.a
+--- 10,20 ----
+  OBJS=		Endings.o EndingsDB.o Exact.o \
+  		Fuzzy.o Metaphone.o Soundex.o \
+  		SuffixEntry.o Synonym.o htfuzzy.o \
+! 		Substring.o Prefix.o Accents.o
+  
+  LIBOBJS=	Endings.o Exact.o Fuzzy.o Metaphone.o \
+  		Soundex.o Synonym.o EndingsDB.o SuffixEntry.o \
+! 		Substring.o Prefix.o Accents.o
+  
+  TARGET=		htfuzzy
+  LIBTARGET=	libfuzzy.a
+diff -c3prN htdig-3.1.5/htfuzzy/htfuzzy.cc htdig-3.1.5.accents/htfuzzy/htfuzzy.cc
+*** htdig-3.1.5/htfuzzy/htfuzzy.cc	Thu Feb 24 20:29:11 2000
+--- htdig-3.1.5.accents/htfuzzy/htfuzzy.cc	Thu Mar  2 11:23:12 2000
+*************** static char RCSid[] = "$Id: htfuzzy.cc,v
+*** 43,48 ****
+--- 43,49 ----
+  
+  #include "htfuzzy.h"
+  #include "Fuzzy.h"
++ #include "Accents.h"
+  #include "Soundex.h"
+  #include "Endings.h"
+  #include "Metaphone.h"
+*************** main(int ac, char **av)
+*** 108,113 ****
+--- 109,118 ----
+  	{
+  	    wordAlgorithms.Add(new Metaphone);
+  	}
++ 	else if (mystrcasecmp(av[i], "accents") == 0)
++ 	{
++ 	    wordAlgorithms.Add(new Accents);
++ 	}
+  	else if (mystrcasecmp(av[i], "endings") == 0)
+  	{
+  	    noWordAlgorithms.Add(new Endings);
+*************** usage()
+*** 237,242 ****
+--- 242,248 ----
+      cout << "Supported algorithms:\n";
+      cout << "\tsoundex\n";
+      cout << "\tmetaphone\n";
++     cout << "\taccents\n";
+      cout << "\tendings\n";
+      cout << "\tsynonyms\n";
+      cout << "\n";
+diff -c3prN htdig-3.1.5/htsearch/htsearch.cc htdig-3.1.5.accents/htsearch/htsearch.cc
+*** htdig-3.1.5/htsearch/htsearch.cc	Thu Feb 24 20:29:11 2000
+--- htdig-3.1.5.accents/htsearch/htsearch.cc	Mon Mar  6 13:13:00 2000
+*************** setupWords(char *allWords, List &searchW
+*** 475,481 ****
+      // configuration attribute.
+      // For algorithms other than exact, we need to also do word lookups.
+      //
+!     StringList	algs(config["search_algorithm"], " \t,");
+      List		algorithms;
+      String		name, weight;
+      double		fweight;
+--- 475,481 ----
+      // configuration attribute.
+      // For algorithms other than exact, we need to also do word lookups.
+      //
+!     StringList	algs(config["search_algorithm"], " \t");
+      List		algorithms;
+      String		name, weight;
+      double		fweight;
+
+--------------------
+
+-- 
+Gilles R. Detillieux              E-mail: <grdetil@scrc.umanitoba.ca>
+Spinal Cord Research Centre       WWW:    http://www.scrc.umanitoba.ca/~grdetil
+Dept. Physiology, U. of Manitoba  Phone:  (204)789-3766
+Winnipeg, MB  R3E 3J7  (Canada)   Fax:    (204)789-3930
+
+------------------------------------
+To unsubscribe from the htdig mailing list, send a message to
+htdig-unsubscribe@htdig.org
+You will receive a message to confirm this.

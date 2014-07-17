@@ -1,0 +1,11 @@
+--- db/mp_cmpr.c	2004-02-13 13:52:08.000000000 +0100
++++ db/mp_cmpr.c.oden	2008-12-23 17:35:48.000000000 +0100
+@@ -72,6 +72,8 @@ static const char sccsid[] = "@(#)mp_cmp
+ #include <string.h>
+ #endif
+ 
++#include <string.h>
++
+ #include "db_int.h"
+ #include "db_page.h"
+ #include "shqueue.h"

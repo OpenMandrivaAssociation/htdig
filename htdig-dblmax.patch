@@ -1,0 +1,10 @@
+--- htdig-3.2.0b3/htsearch/Display.cc.orig	Mon Jun 25 13:53:58 2001
++++ htdig-3.2.0b3/htsearch/Display.cc	Mon Jun 25 13:54:52 2001
+@@ -36,6 +36,7 @@
+ #include <syslog.h>
+ #include <locale.h>
+ #include <math.h>
++#include <values.h>
+ 
+ #if !defined(DBL_MAX) && defined(MAXFLOAT)
+ # define DBL_MAX MAXFLOAT

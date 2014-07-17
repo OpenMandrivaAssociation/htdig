@@ -1,0 +1,14 @@
+--- htsearch/Collection.h.orig	2006-11-17 13:12:45.436150836 +0200
++++ htsearch/Collection.h	2006-11-17 13:12:57.776854091 +0200
+@@ -36,9 +36,9 @@
+                const char *docExcerpt);
+     ~Collection();
+ 
+-    void Collection::Open();
++    void Open();
+ 
+-    void Collection::Close(); 
++    void Close(); 
+ 
+     char *getWordFile() { return wordFile.get(); }
+     DocumentRef         *getDocumentRef(int id);
