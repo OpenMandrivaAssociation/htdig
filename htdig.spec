@@ -10,7 +10,7 @@ Version:	3.2.0
 Release:	1
 License:	GPL
 Group:		Networking/WWW
-URL:		http://www.htdig.org/
+URL:		https://www.htdig.org/
 Source0:	%{name}-%{version}%{betanum}.tar.bz2
 Source1:	htdig-dbgen
 Source2:	%{name}-rundig-accents.patch
