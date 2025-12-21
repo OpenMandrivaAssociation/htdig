@@ -23,6 +23,11 @@ Patch5:		%{name}-localconf.patch
 Patch6:		%{name}-rundiginfos.patch
 Patch50:	%{name}-enabledebug.patch
 Patch85:	htdig-fix-Collection-dot-h.patch
+BuildRequires:	autoconf
+BuildRequires:	automake
+BuildRequires:	libtool-base
+BuildRequires:	slibtool
+BuildRequires:	make
 BuildRequires:	flex >= 2.5.4a-13
 BuildRequires:	libtool
 BuildRequires:	gcc-c++
